@@ -1,0 +1,110 @@
+proc cas;
+
+*specify session;
+session mysess;
+
+*set the caslib for the designated session;
+sessionProp.setSessOpt/caslib="shoelib" timeout=7200;
+
+*load a csv up into cas;
+loadtable result=r status=s / importoptions={filetype="csv", getnames="true"} casout="BadActor2" path="BadActorStuff.csv";
+
+*load a sas7bdat into cas;
+loadtable result=r status=s / importoptions={filetype="BASESAS"} casout="ChiSq" path="chisqexamp.sas7bdat";
+
+*example of loading in a csv with a number of options and subsetting variables;
+table.loadTable /
+    path="classfr3.csv"
+    importOptions={                                         
+          fileType="csv"
+          encoding="utf8" 
+          delimiter=";"
+          getNames=false
+          locale="Fr_fr"
+          vars={"sexe", "nom", "âge", "la taille", "poids"}
+    };
+
+*save down table in the format of an excel spreadsheet;
+table.save / exportoptions={filetype="excel"} name="test" table="ChiSq";
+
+*save down a table as a csv- defaults to this without export options;
+
+table.save/ name="test2.csv" table="ChiSq";
+
+*promote table named ChiSq;
+table.promote / name="ChiSq";
+
+*fetch some observations from a table;
+table.fetch / fetchVars={{name="fare_amount"},{name="passenger_count"}} sortBy={name="VendorID"} table="GREEN_TRIPDATA_2017_11";
+
+run;
+quit;
+
+*Rename Columns of Data Set;
+proc cas;
+session shoe;
+table.alterTable / columns={
+{name="Var1",rename="idfa"},
+{name="Var2",rename="idfa_type"},
+{name="Var3",rename="country_code"},
+{name="Var6",rename="device_os"},
+{name="Var8",rename="latitude"},
+{name="Var9",rename="longitude"},
+{name="Var10",rename="timestamp"},
+{name="Var11",rename="ip_address"},
+{name="Var12",rename="horizontal_accuracy"},
+{name="Var14",rename="foreground"},
+{name="Var17",rename="derived_country_code"}} 
+name="Durham_Full";
+run;
+quit;
+
+*Loop through a Directory and readin all the files;
+proc cas;
+
+session shoe;
+ 
+table.fileinfo result=fileresult / caslib="DIU" path="DIU2";
+print(fileresult);
+describe(fileresult);
+ 
+filelist=findtable(fileresult);
+do cvalue over filelist;
+   print (cvalue.name);
+  loadtable result=r status=s / importoptions={filetype="csv", getnames="false"} casout={name=scan(cvalue.name,1,'.') replace=true} path="DIU2/" || cvalue.name;
+  
+  currentdata=scan(cvalue.name,1,'.');
+  print(currentdata);
+
+  table.tableexists result=results/ caslib="diu" name="durham_full";
+
+  code1="data diu.durham_full (append=yes); set diu." || currentdata || "; run;";
+  code2="data diu.durham_full;  set diu." || currentdata || "; run;";
+
+if(results.exists) then datastep.RunCode code=code1;
+else datastep.RunCode code=code2;
+
+table.dropTable/ name=currentdata;
+
+/*  
+if(results.exists) then ds2.runDS2 program=program1;
+   else ds2.runDS2 program=program2;
+*/
+
+end;
+quit;  
+
+*Print out all tables in a caslib;
+proc cas;
+session shoe;
+table.tableinfo result=fileresult / caslib="Public";
+print(fileresult);
+describe(fileresult);
+
+filelist=findtable(fileresult);
+do cvalue over filelist;
+print(cvalue.Name);
+print(cvalue.sourceName);
+end;
+
+run;
